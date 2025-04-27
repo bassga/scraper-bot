@@ -8,19 +8,29 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+
+	"github.com/bassga/scraper-bot/internal/domain/uploader"
 )
 
-func UploadImage(webhookURL string, filePath string) error {
+// UploaderImpl は Uploader インターフェースの実装
+type UploaderImpl struct{}
+
+// NewUploader は UploaderImpl のコンストラクタ
+func NewUploader() uploader.Uploader {
+	return &UploaderImpl{}
+}
+
+// UploadImage はファイルをDiscord Webhookにアップロードする
+func (u *UploaderImpl) UploadImage(webhookURL string, filePath string) error {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
-	}	
+	}
 	defer file.Close()
 
 	var requestBody bytes.Buffer
 	writer := multipart.NewWriter(&requestBody)
 
-	// 修正: CreateFormFileにしてフィールド名とファイル名を渡す
 	part, err := writer.CreateFormFile("file", filepath.Base(filePath))
 	if err != nil {
 		return fmt.Errorf("failed to create form file: %w", err)
@@ -44,7 +54,6 @@ func UploadImage(webhookURL string, filePath string) error {
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
-
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}

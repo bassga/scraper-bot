@@ -6,11 +6,21 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/bassga/scraper-bot/internal/domain/fetcher"
 	"golang.org/x/net/html"
 )
 
-// FetchImageURLs は指定したURLにHTTPアクセスして、HTMLから画像のURL一覧を取得する
-func FetchImageURLs(targetURL string) ([]string, error) {
+
+
+type FetcherImpl struct{}
+
+// NewFetcher は FetcherImpl のコンストラクタ
+func NewFetcher() fetcher.Fetcher {
+	return &FetcherImpl{}
+}
+
+// FetchImageURLs は指定したターゲットURLから画像URLリストを取得する
+func (f *FetcherImpl) FetchImageURLs(targetURL string) ([]string, error) {
 	// URLにHTTPリクエストを送る
 	resp, err := http.Get(targetURL)
 	if err != nil {
@@ -102,3 +112,5 @@ func toAbsoluteURL(baseURL, imageURL string) (string, error) {
 	absoluteURL := parsedBase.ResolveReference(parsedImage)
 	return absoluteURL.String(), nil
 }
+
+
