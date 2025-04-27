@@ -9,7 +9,7 @@ import (
 )
 
 // DownloadImage は指定した画像URLをダウンロードして保存する
-func DownloadImage(url string, destFolder string) (string, error) {
+func DownloadImage(url string, destFolder string, saveAsName string) (string, error) {
 	// HTTPリクエストで画像データ取得
 	resp, err := http.Get(url)
 	if err != nil {
@@ -22,8 +22,7 @@ func DownloadImage(url string, destFolder string) (string, error) {
 	}
 
 	// ファイル名をURLから推測
-	fileName := filepath.Base(url)
-	filePath := filepath.Join(destFolder, fileName)
+	filePath := filepath.Join(destFolder, saveAsName)
 
 	// 保存先ファイル作成
 	out, err := os.Create(filePath)
