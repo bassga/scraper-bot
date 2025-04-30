@@ -7,11 +7,18 @@ import (
 	"github.com/bassga/scraper-bot/internal/domain/logger"
 )
 
-
 type ResizeHandler struct {
-	BaseHandler
+	base *BaseHandler
 	Logger logger.Logger
 	Folder string
+}
+
+func NewResizeHandler(logger logger.Logger, folder string) *ResizeHandler {
+	return &ResizeHandler{
+		base: &BaseHandler{},
+		Logger: logger,
+		Folder: folder,
+	}
 }
 
 func (h *ResizeHandler) Handle(ctx context.Context, job Job) error {
@@ -19,9 +26,9 @@ func (h *ResizeHandler) Handle(ctx context.Context, job Job) error {
 	// ここではダミーで成功とする
 	fmt.Printf("[ResizeHandler] resized image: %s\n", job.SaveAsName)
 
-	return h.Next(ctx, job)
+	return h.base.Next(ctx, job)
 }
 
 func (h *ResizeHandler) SetNext(next JobHandler) {
-	h.BaseHandler.SetNext(next)
+	h.base.SetNext(next)
 }

@@ -50,16 +50,16 @@ func (app *DownloaderApp) Run(ctx context.Context, targetURL , downloadFolder st
 		wg.Add(1)
 
 		// ハンドラチェーンの構築
-		downloadHandler := &worker.DownloadHandler{
-			Downloader: app.container.Downloader,
-			Logger:     app.container.Logger,
-			Folder:     downloadFolder,
-		}
+		downloadHandler := worker.NewDownloadHandler(
+			app.container.Downloader,
+			app.container.Logger,
+			downloadFolder,
+		)
 
-		resizeHandler := &worker.ResizeHandler{
-			Logger:  app.container.Logger,
-			Folder: downloadFolder,
-		}
+		resizeHandler := worker.NewResizeHandler(
+			app.container.Logger,
+			downloadFolder,
+		)
 
 		downloadHandler.SetNext(resizeHandler)
 
@@ -69,6 +69,7 @@ func (app *DownloaderApp) Run(ctx context.Context, targetURL , downloadFolder st
 			Ctx:           ctx,
 			Jobs:          jobs,
 			Folder:        downloadFolder,
+			MaxRetries: 	 app.maxRetries,
 			RetryStrategy: &worker.FixedRetryStrategy{},
 			JobHandler:    downloadHandler, // ハンドラチェーンの開始点
 		}

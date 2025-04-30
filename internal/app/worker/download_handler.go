@@ -9,10 +9,19 @@ import (
 
 
 type DownloadHandler struct {
-	BaseHandler
+	base *BaseHandler
 	Downloader downloader.Downloader
 	Logger logger.Logger
 	Folder string
+}
+
+func NewDownloadHandler(dl downloader.Downloader, logger logger.Logger, folder string) *DownloadHandler {
+	return &DownloadHandler{
+		base:       &BaseHandler{},
+		Downloader: dl,
+		Logger:     logger,
+		Folder:     folder,
+	}
 }
 
 func (h *DownloadHandler) Handle(ctx context.Context, job Job) error {
@@ -22,9 +31,9 @@ func (h *DownloadHandler) Handle(ctx context.Context, job Job) error {
 		return err
 	}
 	h.Logger.Info("download succeded: %s", job.SaveAsName)
-	return h.Next(ctx, job)
+	return h.base.Next(ctx, job)
 }
 
 func (h *DownloadHandler) SetNext(next JobHandler) {
-	h.BaseHandler.SetNext(next)
+	h.base.SetNext(next)
 }
