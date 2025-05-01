@@ -1,25 +1,35 @@
 package main
 
 import (
+	"context"
 	"log"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"syscall"
+	"time"
 
 	"github.com/bassga/scraper-bot/config"
 	"github.com/bassga/scraper-bot/internal/app"
 	"github.com/bassga/scraper-bot/internal/di"
 )
 
-const workerCount = 5 // 同時に動かすワーカー（ダウンロード並列数）
-const maxRetries = 3  // 最大リトライ回数
 
 func main() {
-	// 設定情報読み込み
 	cfg := config.LoadConfig()
-
 	container := di.NewContainer()
+	downloaderApp := app.NewDownloaderApp(container, cfg.WorkerCount, cfg.MaxRetries)
 
-	downloaderApp := app.NewDownloaderApp(container, workerCount, maxRetries)
-
-	if err := downloaderApp.Run(cfg.TargetURL); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	today := time.Now().Format("2006-01-02")
+	downloadFolder := filepath.Join("downloads", today)
+	err := os.MkdirAll(downloadFolder, os.ModePerm)
+	if err != nil {
+		log.Fatalf("failed to create downloads folder: %v", err)
+		return
+	}
+	if err := downloaderApp.Run(ctx, cfg.TargetURL, downloadFolder); err != nil {
 		log.Fatalf("application failed: %v", err)
 	}
 }

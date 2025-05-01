@@ -1,6 +1,7 @@
 package downloader
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,9 +21,15 @@ func NewDownloader() downloader.Downloader {
 }
 
 // DownloadImage は指定したURLの画像を保存先フォルダに保存する
-func (d *DownloaderImpl) DownloadImage(url string, destFolder string, saveAsName string) (string, error) {
+func (d *DownloaderImpl) DownloadImage(ctx context.Context, url string, destFolder string, saveAsName string) (string, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get(url)
+	
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to download image: %w", err)
 	}

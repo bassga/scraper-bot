@@ -1,33 +1,30 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sync"
-	"time"
 
+	"github.com/bassga/scraper-bot/internal/app/worker"
 	"github.com/bassga/scraper-bot/internal/di"
 )
 
-
 type DownloaderApp struct {
-	container *di.Container
+	container             *di.Container
 	workerCount, maxRetries int
 }
 
 func NewDownloaderApp(container *di.Container, workerCount, maxRetries int) *DownloaderApp {
 	return &DownloaderApp{
-		container: container,
+		container:   container,
 		workerCount: workerCount,
-		maxRetries: maxRetries,
+		maxRetries:  maxRetries,
 	}
 }
 
-func (app *DownloaderApp) Run(targetURL string) error {
-	today := time.Now().Format("2006-01-02")
-	downloadFolder := filepath.Join("downloads", today)
-
+func (app *DownloaderApp) Run(ctx context.Context, targetURL , downloadFolder string) error {
+	
 	err := os.MkdirAll(downloadFolder, os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("failed to create downloads folder: %w", err)
@@ -45,48 +42,47 @@ func (app *DownloaderApp) Run(targetURL string) error {
 
 	app.container.Logger.Info("found %d images, starting download...\n", len(imageURLs))
 
-	channels := make(chan struct {
-		url string
-		saveAsName string
-	}, len(imageURLs))
+	jobs := make(chan worker.Job, len(imageURLs))
 
 	var wg sync.WaitGroup
 
 	for w := 0; w < app.workerCount; w++ {
 		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for channel := range channels {
-				var filePath string
-				var err error
-				for attempt := 1; attempt <= app.maxRetries; attempt++ {
-					filePath, err = app.container.Downloader.DownloadImage(channel.url, downloadFolder, channel.saveAsName)
-					if err == nil {
-						break
-					}
-					app.container.Logger.Error("failed to download image (attempt %d/%d): %v", attempt, app.maxRetries, err)
-					time.Sleep(1 * time.Second)
-				}
 
-				if err != nil {
-					app.container.Logger.Error("giving up downloading image after retries: %v", err)
-					continue
-				}
+		// ハンドラチェーンの構築
+		downloadHandler := worker.NewDownloadHandler(
+			app.container.Downloader,
+			app.container.Logger,
+			downloadFolder,
+		)
 
-				app.container.Logger.Info("successfully downloaded: %s\n", filePath)
-			}
-		}()
+		resizeHandler := worker.NewResizeHandler(
+			app.container.Logger,
+			downloadFolder,
+		)
+
+		downloadHandler.SetNext(resizeHandler)
+
+		worker := &worker.Worker{
+			Downloader:    app.container.Downloader,
+			Logger:        app.container.Logger,
+			Ctx:           ctx,
+			Jobs:          jobs,
+			Folder:        downloadFolder,
+			MaxRetries: 	 app.maxRetries,
+			RetryStrategy: &worker.FixedRetryStrategy{},
+			JobHandler:    downloadHandler, // ハンドラチェーンの開始点
+		}
+
+		go worker.Run(&wg)
 	}
 
 	for i, imageURL := range imageURLs {
 		saveAsName := fmt.Sprintf("stamp_%03d.png", i+1)
-		channels <- struct {
-			url string
-			saveAsName string
-		}{url: imageURL, saveAsName: saveAsName}
+		jobs <- worker.Job{URL: imageURL, SaveAsName: saveAsName}
 	}
 
-	close(channels)
+	close(jobs)
 	wg.Wait()
 
 	app.container.Logger.Info("all images processed.")
